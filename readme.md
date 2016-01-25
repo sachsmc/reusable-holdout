@@ -2,9 +2,9 @@
 
 This is a repository of some experiments and a presentation about the reusable holdout method.
 
-- The [Code directory](https://github.com/sachsmc/tree/master/Code) contains the original python implementation of the numerical experiment reported in Dwork et al, a port to R, and some results.
-- The [Presentation directory](https://github.com/sachsmc/tree/master/Presentation) contains the presentation
-- [Link to the presentation](https://sachsmc.github.io/reusable-holdout/cdp-science-sachs.html)
+- The [Code directory](https://github.com/sachsmc/reusable-holdout/tree/master/Code) contains the original python implementation of the numerical experiment reported in Dwork et al, a port to R, and some results.
+- The [Presentation directory](https://github.com/sachsmc/reusable-holdout/tree/master/Presentation) contains the presentation
+- [Link to the presentation](https://sachsmc.github.io/reusable-holdout/Presentation/cdp-science-sachs.html)
 
 ### References
 
