@@ -1,7 +1,8 @@
 ---
 title: "The Reusable Holdout, a New Hope for Developing Valid Biomarker Signatures?"
+subtitle: "CDP Science Session"
 author: "Michael Sachs"
-date: "January 5, 2016"
+date: "January 26, 2016"
 output: 
     slidy_presentation:
         pandoc_args: [--section-divs]
@@ -199,7 +200,7 @@ To preserve the privacy of individuals' data in the database, we can introduce a
 A randomized algorithm $\mathcal{A}$ with domain $\mathcal{X}^n$ for $n > 0$ is *differentially private* if for all pairs of datasets that differ in a single element, $S, S'$, and $\epsilon > 0$
 
 $$
-\max_{x \in \mathcal{X}} \frac{P[\mathcal{A}(S) \in x]}{P[\mathcal{A}(S')]} \leq e^\epsilon
+\max_{x \in \mathcal{X}} \frac{P[\mathcal{A}(S) \in x]}{P[\mathcal{A}(S') \in x]} \leq e^\epsilon
 $$
 
 
@@ -209,7 +210,7 @@ $$
     + Handles adaptive data analysis
 - Implies bounds on overfitting: 
 
-If \mathcal{A} is a differentially private algorithm from $\mathcal{X} \mapsto \mathbb{R}$ (i.e., like a random version of $\phi$), then for $n \geq 2/\epsilon^2$, 
+If $\mathcal{A}$ is a differentially private algorithm from $\mathcal{X} \mapsto \mathbb{R}$ (i.e., like a random version of $\phi$), then for $n \geq 2/\epsilon^2$, 
 
 $$
 P(|E_\mathcal{P}(\phi) - E_S(\phi)| > 13 \epsilon) \leq \log\left(\frac{2}{\epsilon}\right),
