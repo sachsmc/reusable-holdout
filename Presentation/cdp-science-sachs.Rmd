@@ -1,13 +1,8 @@
 ---
 title: "The Reusable Holdout, a New Hope for Developing Valid Biomarker Signatures?"
-<<<<<<< HEAD
-author: "Michael Sachs"
-date: "January 5, 2016"
-=======
 subtitle: "CDP Science Session"
 author: "Michael Sachs"
-date: "January 26, 2016"
->>>>>>> 8853ed2bc6b87511379ecd30a1aa0e6449cc953c
+date: "April 26, 2016"
 output: 
     slidy_presentation:
         pandoc_args: [--section-divs]
@@ -205,11 +200,7 @@ To preserve the privacy of individuals' data in the database, we can introduce a
 A randomized algorithm $\mathcal{A}$ with domain $\mathcal{X}^n$ for $n > 0$ is *differentially private* if for all pairs of datasets that differ in a single element, $S, S'$, and $\epsilon > 0$
 
 $$
-<<<<<<< HEAD
-\max_{x \in \mathcal{X}} \frac{P[\mathcal{A}(S) \in x]}{P[\mathcal{A}(S')]} \leq e^\epsilon
-=======
 \max_{x \in \mathcal{X}} \frac{P[\mathcal{A}(S) \in x]}{P[\mathcal{A}(S') \in x]} \leq e^\epsilon
->>>>>>> 8853ed2bc6b87511379ecd30a1aa0e6449cc953c
 $$
 
 
@@ -219,11 +210,7 @@ $$
     + Handles adaptive data analysis
 - Implies bounds on overfitting: 
 
-<<<<<<< HEAD
-If \mathcal{A} is a differentially private algorithm from $\mathcal{X} \mapsto \mathbb{R}$ (i.e., like a random version of $\phi$), then for $n \geq 2/\epsilon^2$, 
-=======
 If $\mathcal{A}$ is a differentially private algorithm from $\mathcal{X} \mapsto \mathbb{R}$ (i.e., like a random version of $\phi$), then for $n \geq 2/\epsilon^2$, 
->>>>>>> 8853ed2bc6b87511379ecd30a1aa0e6449cc953c
 
 $$
 P(|E_\mathcal{P}(\phi) - E_S(\phi)| > 13 \epsilon) \leq \log\left(\frac{2}{\epsilon}\right),
@@ -260,14 +247,14 @@ Set $\hat{T} = T + \gamma$ where $\gamma \sim N(0, 4\tau)$. For $\phi: \mathcal{
 - Dwork et al. recommend choosing so $T + \tau = 0.05$
 - Budget $B$ is determined by
     $$
-    \frac{\tau^2 n^2}{512 \cdot \log(8/\beta)}
+    \frac{\tau^5 n^2}{512 \cdot \log(8/\beta)}
     $$
 
 ```{r bugd, echo = FALSE, fig.align = "center"}
 library(ggplot2)
 plotbud <- function(n, tau){
   
-  tau^2 * n^2/(512 * log(8/.05))
+  tau^5 * n^2/(512 * log(8/.15))
   
 }
 
