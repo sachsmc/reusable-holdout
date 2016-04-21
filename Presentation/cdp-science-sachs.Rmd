@@ -2,7 +2,7 @@
 title: "The Reusable Holdout, a New Hope for Developing Valid Biomarker Signatures?"
 subtitle: "CDP Science Session"
 author: "Michael Sachs"
-date: "January 26, 2016"
+date: "April 26, 2016"
 output: 
     slidy_presentation:
         pandoc_args: [--section-divs]
@@ -44,6 +44,7 @@ make_block(df2)
 > A **biomarker signature** is a transformation of multiple individual features to a one-dimensional space. 
 
 - A signature that _reliably predicts_ an outcome may be useful for treatment selection or prognosis. 
+- A signature that _discriminates_ between groups that would be treated differently may be clinically useful. 
 - A signature may be continuous, binary, or take multiple discrete values. 
 
 
@@ -82,18 +83,18 @@ $$
 
 Let $S$ denote the development dataset, includes $X$ and possibly $Y, Z$ and other variables, a sample of size $n$ from distribution $\mathcal{P}$ with domain $\mathcal{X}$. 
 
+Let $\mathcal{F}: \mathcal{X} \mapsto \mathcal{D}$ denote the process or algorithm that generates a particular $f$, i.e. $f \in \mathcal{F}$ 
+
 Let $\phi: \mathcal{X} \mapsto \mathbb{R}$ denote the performance evaluation function, e.g., accuracy of predictive model. 
 
-> Note that $\phi$ does not depend on $f$, but rather the algorithm used to generate $f$. 
+We are interested in estimating $E_\mathcal{P}[\phi_f(S)]$, the _generalization error_ for a fixed $f$.
 
-We are interested in estimating $E_\mathcal{P}(\phi)$, the _generalization error_. 
-
-We can estimate that with the in-sample empirical estimate: $E_S(\phi) = \frac{1}{n}\sum_{i=1}^n \phi(s_i)$. 
+We can estimate that with the in-sample empirical estimate: $\hat{E}[\phi_f(S)] = \frac{1}{n}\sum_{i=1}^n \phi_f(s_i)$. 
 
 However, if the analyst __interacts with $S$__ in the definition of $\phi$, the estimate will be biased (overfit). I.e.,
 
 $$
-|E_\mathcal{P}(\phi) - E_S(\phi)|
+|E_\mathcal{P}[\phi_f(S)] - \hat{E}[\phi_f(S)]|
 $$
 
 will be large. 
@@ -103,18 +104,21 @@ will be large.
 1. Split-sample:
     - Partition $S$ into $S_t$ and $S_h$ with sample sizes $n_t$ and $n_h$
     - Hide $S_h$ from yourself
-    - Generate an $f$ using $S_t$ only
-    - Estimate is $E_{S_h}(\phi)$
+    - Generate an $f_t$ using $S_t$ only
+    - Estimate is $E[\phi_{f_t}(S_h)]$
+    - *Error for the fixed $f_t$*
 2. Cross-validation:
     - Leave out sample $i$ and estimate $f$ using $S_{-i}$
-    - Get single estimate $\phi(s_i)$ for that $f$
+    - Get single estimate $\phi_f(s_i)$
     - Repeat a number of times
     - Average the single estimates
+    - *Generalization error for the class $\mathcal{F}$*
 3. Bootstrapping:
     - Randomly sample $S_b$ from $S$, with replacement
     - Derive $f$ using $S_b$
     - Estimate using samples not selected $S_{-b}$
-    - Repeat
+    - Repeat and average
+    - *Generalization error for the class $\mathcal{F}$*
 
 ## Examples of "interacts with $S$"
 
@@ -158,6 +162,7 @@ Let's say I'm conducting a randomized clinical trial testing a new treatment ver
 **Obviously** not OK. In clinical trials we have pre-registration. 
 
 ![standard holdout](standard-holdout.png)
+
 
 ## A New Hope?
 
@@ -234,27 +239,29 @@ Set $\hat{T} = T + \gamma$ where $\gamma \sim N(0, 4\tau)$. For $\phi: \mathcal{
 
 1. If $B < 1$, stop. 
 2. Else, sample $\xi \sim N(0, 2\tau)$, $\gamma \sim N(0, 4\tau)$, and $\eta \sim N(0, 8\tau)$. 
-    1. If $|E_{S_h}(\phi) - E_{S_t}(\phi)| > \hat{T} + \eta$, output $E_{S_h}(\phi) + \xi$ and set $B = B - 1$ and $\hat{T} = T + \gamma$. 
-    2. Else, output $E_{S_t}(\phi)$. 
+    1. If $|E[\phi_f(S_h)] - E[\phi_f(S_t)]| > \hat{T} + \eta$, output $E[\phi_f(S_h)] + \xi$ and set $B = B - 1$ and $\hat{T} = T + \gamma$. 
+    2. Else, output $E[\phi_f(S_t)]$. 
     
     
 ## Comments: 
 
 - $T$ and $\tau$ control the degree of generalization error: 
     $$
-    P\left\{|E_\mathcal{P}(\phi) - E_S(\phi)| > \tau\right\} \leq \beta
+    P\left\{|E_\mathcal{P}[\phi_f(S)] - \hat{E}[\phi_f(S)]| > \tau\right\} \leq 6 e^{-\tau^2 n}
     $$
 - Dwork et al. recommend choosing so $T + \tau = 0.05$
-- Budget $B$ is determined by
+- Setting budget $B$ equal to
     $$
-    \frac{\tau^2 n^2}{512 \cdot \log(8/\beta)}
+    \tau^2 n
     $$
+  guarantees that the above bound is met.
+- Note that the bound depends on $n$. 
 
 ```{r bugd, echo = FALSE, fig.align = "center"}
 library(ggplot2)
 plotbud <- function(n, tau){
   
-  tau^2 * n^2/(512 * log(8/.05))
+  tau^2 * n
   
 }
 
@@ -371,8 +378,14 @@ plotme(highsignal, c(9, 7))
 
 ## Conclusions
 
+### Should people use Thresholdout?
+
 - Still relying on researchers to develop and validate their own models
 - Incentive for objective assessment? 
+- We have no control over the holdout datasets
+
+### Is it useful? 
+
 - Benefits are not clear, i.e., may not produce better performing algorithms
 - Future work, expect better performing adaptive procedures to be developed
 - Need to make good use of information obtained from holdout to outperform standard methods
