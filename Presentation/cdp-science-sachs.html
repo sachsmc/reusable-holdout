@@ -84,10 +84,10 @@ f(X): \mathbb{R}^p \mapsto \mathbb{R}^1
 <h1>Valid estimates of performance</h1>
 <p>Let <span class="math">\(S\)</span> denote the development dataset, includes <span class="math">\(X\)</span> and possibly <span class="math">\(Y, Z\)</span> and other variables, a sample of size <span class="math">\(n\)</span> from distribution <span class="math">\(\mathcal{P}\)</span> with domain <span class="math">\(\mathcal{X}\)</span>.</p>
 <p>Let <span class="math">\(\mathcal{F}: \mathcal{X} \mapsto \mathcal{D}\)</span> denote the process or algorithm that generates a particular <span class="math">\(f\)</span>, i.e. <span class="math">\(f \in \mathcal{F}\)</span></p>
-<p>Let <span class="math">\(\phi: \mathcal{X} \mapsto \mathbb{R}\)</span> denote the performance evaluation function, e.g., accuracy of predictive model.</p>
-<p>We are interested in estimating <span class="math">\(E_\mathcal{P}[\phi_f(S)]\)</span>, the <em>generalization error</em> for a fixed <span class="math">\(f\)</span>.</p>
-<p>We can estimate that with the in-sample empirical estimate: <span class="math">\(\hat{E}[\phi_f(S)] = \frac{1}{n}\sum_{i=1}^n \phi_f(s_i)\)</span>.</p>
-<p>However, if the analyst <strong>interacts with <span class="math">\(S\)</span></strong> in the definition of <span class="math">\(\phi\)</span>, the estimate will be biased (overfit). I.e.,</p>
+<p>Let <span class="math">\(\phi_f: \mathcal{X} \mapsto \mathbb{R}\)</span> denote the performance evaluation function, e.g., accuracy of predictive model, magnitude of hazard ratio.</p>
+<p>We are interested in estimating <span class="math">\(E_\mathcal{P}[\phi_f(S)]\)</span>, the <em>generalization error</em> for a fixed <span class="math">\(f\)</span> or maybe for a class <span class="math">\(\mathcal{F}\)</span>.</p>
+<p>An estimate of that is the in-sample empirical estimate: <span class="math">\(\hat{E}[\phi_f(S)] = \frac{1}{n}\sum_{i=1}^n \phi_f(s_i)\)</span>.</p>
+<p>However, if the analyst <strong>interacts with <span class="math">\(S\)</span></strong> in the definition of <span class="math">\(\phi_f\)</span>, the estimate will be biased (overfit). I.e.,</p>
 <p><span class="math">\[
 |E_\mathcal{P}[\phi_f(S)] - \hat{E}[\phi_f(S)]|
 \]</span></p>
@@ -349,6 +349,7 @@ P\left\{|E_\mathcal{P}[\phi_f(S)] - \hat{E}[\phi_f(S)]| &gt; \tau\right\} \leq 6
 <li>Still relying on researchers to develop and validate their own models</li>
 <li>Incentive for objective assessment?</li>
 <li>We have no control over the holdout datasets</li>
+<li>You need to plan this in advance, i.e., can’t fix example 5.</li>
 </ul>
 </div>
 <div id="is-it-useful" class="section level3">
