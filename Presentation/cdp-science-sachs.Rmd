@@ -85,13 +85,13 @@ Let $S$ denote the development dataset, includes $X$ and possibly $Y, Z$ and oth
 
 Let $\mathcal{F}: \mathcal{X} \mapsto \mathcal{D}$ denote the process or algorithm that generates a particular $f$, i.e. $f \in \mathcal{F}$ 
 
-Let $\phi: \mathcal{X} \mapsto \mathbb{R}$ denote the performance evaluation function, e.g., accuracy of predictive model. 
+Let $\phi_f: \mathcal{X} \mapsto \mathbb{R}$ denote the performance evaluation function, e.g., accuracy of predictive model, magnitude of hazard ratio. 
 
-We are interested in estimating $E_\mathcal{P}[\phi_f(S)]$, the _generalization error_ for a fixed $f$.
+We are interested in estimating $E_\mathcal{P}[\phi_f(S)]$, the _generalization error_ for a fixed $f$ or maybe for a class $\mathcal{F}$.
 
-We can estimate that with the in-sample empirical estimate: $\hat{E}[\phi_f(S)] = \frac{1}{n}\sum_{i=1}^n \phi_f(s_i)$. 
+An estimate of that is the in-sample empirical estimate: $\hat{E}[\phi_f(S)] = \frac{1}{n}\sum_{i=1}^n \phi_f(s_i)$. 
 
-However, if the analyst __interacts with $S$__ in the definition of $\phi$, the estimate will be biased (overfit). I.e.,
+However, if the analyst __interacts with $S$__ in the definition of $\phi_f$, the estimate will be biased (overfit). I.e.,
 
 $$
 |E_\mathcal{P}[\phi_f(S)] - \hat{E}[\phi_f(S)]|
@@ -383,6 +383,7 @@ plotme(highsignal, c(9, 7))
 - Still relying on researchers to develop and validate their own models
 - Incentive for objective assessment? 
 - We have no control over the holdout datasets
+- You need to plan this in advance, i.e., can't fix example 5.
 
 ### Is it useful? 
 
