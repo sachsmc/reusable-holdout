@@ -1,0 +1,754 @@
+---
+title: "Statistical Issues in Developing Multivariable Biomarker Signatures"
+subtitle: "Biomarkers in Cancer Therapy Trials"
+author: "Michael Sachs"
+date: "May 4, 2016"
+output: 
+    slidy_presentation:
+        pandoc_args: [--section-divs]
+---
+
+
+## Biomarker Signatures
+
+<style type="text/css">
+.definition {
+  background-color: #E8F5FA;
+  padding: 2px;
+}
+
+th {
+  border-bottom-style: solid;
+}
+</style>
+
+
+```{r setup, include = FALSE}
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(survival)
+library(ggkm)
+library(tidyr)
+
+
+swag <- function(sd = 1){
+
+  Predicted <- rnorm(100)
+  True <- Predicted + rnorm(100, mean = 0, sd = sd)
+  Well <- sd
+  data.frame(Predicted, True, Well)
+
+  }
+
+
+library(gganimate)
+library(gridExtra)
+
+library(animation)
+ani.options(autobrowse = FALSE)
+
+opts_chunk$set(fig.align = 'center', echo = FALSE, message = FALSE, error = FALSE, warning = FALSE)
+```
+
+
+```{r blocks, echo = FALSE, fig.width = 8, fig.height = 4, fig.align='center'}
+library(rblocks)
+df <- data.frame(matrix(rnorm(200), nrow = 10))
+colnames(df) <- paste0("G", 1:20)
+layout(matrix(c(1,2,3), 1, 3, byrow = TRUE), widths = c(.65, .1, .25))
+par(mar = c(1, 1, 1, 1))
+
+make_block(df, type = "data.frame")
+
+plot(1 ~ 1, type="n", axes=FALSE, xlab="", ylab="")
+arrows(.5, 1, 1.4, 1, lwd = 3)
+
+df2 <- data.frame(Signature = rnorm(10))
+make_block(df2)
+```
+
+
+> A **biomarker signature** is a transformation of multiple individual features to a one-dimensional space. 
+
+- A signature that _reliably predicts_ an outcome may be useful for treatment selection or prognosis. 
+- A signature that _discriminates_ between groups that would be treated differently may be clinically useful. 
+- A signature may be continuous, binary, or take multiple discrete values. 
+
+
+## Decisions, Decisions
+
+- Do I include all features or a subset? 
+    + Which subset? 
+- How do I combine the features? 
+    + Transformations?
+    + Weight and combine with regression coefficients?
+    + What coefficients? 
+    + Thresholds/Cutoffs before or after combining? 
+    
+    
+## Signature Development
+
+Let $X$ denote the set of $p$ features. The signature is an unknown function 
+
+$$
+f(X): \mathbb{R}^p \mapsto \mathbb{R}^1
+$$
+
+- Development Phase Goals:
+    + Estimate $f$ based on some _training data_
+        - Based on association with outcome $Y$
+        - ... interaction with treatment $Z$ and $Y$
+        - ... "Natural" clusters
+        - ... "Expert" knowledge
+    + Provide a valid estimate of performance of the method in which $f$ is estimated
+        - Depends on the true signal in the data
+        - and the manner in which $f$ is estimated
+    + Provide a specification of $f$ for others to use (optional)
+
+
+## Valid estimates of performance
+
+Let $S$ denote the development dataset, includes $X$ and possibly $Y, Z$ and other variables, a sample of size $n$ from distribution $\mathcal{P}$ with domain $\mathcal{X}$. 
+
+Let $\mathcal{F}: \mathcal{X} \mapsto \mathcal{D}$ denote the process or algorithm that generates a particular $f$, i.e. $f \in \mathcal{F}$ 
+
+Let $\phi_f: \mathcal{X} \mapsto \mathbb{R}$ denote the performance evaluation function, e.g., accuracy of predictive model, magnitude of hazard ratio. 
+
+We are interested in estimating $E_\mathcal{P}[\phi_f(S)]$, the _generalization error_ for a fixed $f$ or maybe for a class $\mathcal{F}$.
+
+An estimate of that is the in-sample empirical estimate: $\hat{E}[\phi_f(S)] = \frac{1}{n}\sum_{i=1}^n \phi_f(s_i)$. 
+
+However, if the analyst __interacts with $S$__ in the definition of $\phi_f$, the estimate will be biased (overfit). I.e.,
+
+$$
+|E_\mathcal{P}[\phi_f(S)] - \hat{E}[\phi_f(S)]|
+$$
+
+will be large. 
+
+
+## Examples of "interacts with $S$"
+
+1. Working on a genomic classifier for binary $Y$:
+    + I test it out on $S$, and take a look at the individual-level accuracys $\phi(s_i)$ of a classifier $f(x_i)$
+    + For $i$ where $\phi(s_i)$ is poor, manually change the value of $y_i$. 
+2. Developing a predictor for binary $Y$:
+    + Test the association of each $X_j$ with $Y$ using t-test on $S$. 
+    + Select the 50 most significant
+    + Put them all in a regression model and test on $S$
+3. Developing a classfier
+    + Select 50 most significant genes using $S$
+    + Split $S$ into $S_h$ and $S_t$
+    + Put them in a regression model estimated using $S_t$
+    + Test it on $S_h$
+4. Developing predictive signature
+    + Split into $S_t$ and $S_h$
+    + Build clustering model on $S_t$
+    + Test performance on $S_h$
+    + Performance isn't as good as I expected 
+    + Go back to $S_t$ and try again using a different approach
+    
+**Which ones give valid estimates?**
+
+## An analogy
+
+Let's say I'm conducting a randomized clinical trial testing a new treatment versus a placebo. 
+
+- I measure OS, EFS, pCR, DFS, and some PK biomarker
+- At the end, test them all and report the most significant difference
+
+- Evaluating $\phi$ using $S$ while also using $S$ to define $\phi$
+- "Adaptive data analysis"
+
+**Obviously** not OK. In clinical trials we have pre-registration. 
+
+- With signatures, often we use $S$ to develop $f$, and thus $\phi_f$. 
+- Adapting to the features in $S$, not necessarily the distribution that generated $S$
+
+## Performance? 
+
+```{r calib, fig.show = "animate"}
+datseet <- do.call(rbind, lapply(c(.1, .5, 1, 1.5, 2), swag))
+
+p <- ggplot(datseet, aes(x = Predicted, y = True, frame = Well)) + geom_point() +
+  geom_smooth(aes(group = Well), method = "lm", se = FALSE) + theme_bw()
+gg_animate(p)
+```
+
+
+Examples of $\phi$:
+
+  - Mean squared error: $E\{\hat{Y} - Y\}$, `mean(Y.hat - Y)`
+  - Classification accuracy, sensitivity, specificity 
+  - ROC curve, AUC
+
+### Calibration {.definition}
+
+Accurately predicts clinical outcome of interest
+
+
+
+## Performance? (2)
+
+
+
+```{r discrim}
+set.seed(251)
+df <- data.frame(Time = c(rexp(250, .15), rexp(250, .015), rexp(250, .25), rexp(250, .15)),
+                 Group = c(rep("Good Disc.", 500), rep("Poor Disc.", 500)),
+                 Signature = rep(c(rep("Negative", 250), rep("Positive", 250)), 2))
+
+df <- df %>% group_by(Signature, Group) %>% do({
+
+  data.frame(Time = .$Time, Survival = (nrow(.):1/nrow(.))[rank(.$Time, ties.method = "first")])
+
+})
+
+p2 <- ggplot(df, aes(x = Time, y = Survival, linetype = Signature)) +
+  scale_x_continuous("Time in years", limits = c(0, 10), breaks = seq(0, 10, by = 2)) +
+  geom_step() + theme_bw()  +
+  facet_wrap(~Group) + guides(linetype = FALSE)
+  
+p2
+```
+
+Examples of $\phi$:
+
+  - Hazard ratio, absolute difference in survival
+  - Odds ratio
+  - P-value from logrank test? 
+
+
+### Discrimination {.definition}
+
+Separates into groups that would be clinically managed differently
+
+
+
+## Methods for signature development
+
+### Broad classes of methods
+
+1. Filter + combine
+2. Regularization
+3. Other
+
+Dataset includes $X_{ij}$ and $Y_i, Z_i$ for $i = 1, \ldots, n$, $j = 1, \ldots, p$
+
+The $p > n$ problem
+
+
+## Filter + combine
+
+#### General idea:
+
+- Number of features, $p$, is too large to incorporate all of the $X_j$ values into a multivariable prognostic model
+- Select only those genes with a promising univariate association with $Y$. 
+- First step, for each $j = 1, \ldots, p$, calculate the two-sample t-statistic **comparing each $X_j$ to $Y$**
+- Then, select only the top 5% of t-statistics in absolute value. 
+- Second step, those top 5% are then included in a multivariable regression model to predict $Y$
+
+#### Variations:
+
+- Statistic used for comparison
+- Threshold for inclusion
+- Regression model used to combine
+
+
+## Regularization
+
+Least squares: 
+
+$$
+\sum_{i=1}^n(Y_i - X_i^T\beta)^2.
+$$
+
+Penalized least squares:
+
+$$
+\sum_{i=1}^n(Y_i - X_i^T\beta)^2 + h(\beta, \lambda),
+$$
+
+where $h$ is a penalty function depending on fixed penalty parameters $\lambda$. 
+
+#### Bias-variance tradeoff
+  - A bit of bias can improve predictions
+  
+#### Variable selection
+  - Different $h$ have different nice properties
+      + Lasso: $h(\beta, \lambda) = \lambda \sum_{j=1}^p |\beta_j|$
+      + Ridge: $h(\beta, \lambda) = \lambda \sum_{j=1}^p (\beta_j)^2$
+      + Elastic net:  $\lambda_1 \sum_{j=1}^p |\beta_j| + \lambda_2 \sum_{j=1}^p(\beta_j)^2$
+      
+#### Works for many regression models
+
+
+## Other
+
+- Clustering/Principal components analysis
+- Regression trees
+- Other regression models 
+- Combinations of the above
+
+## Considerations for predictive signatures
+
+Looking for a strong and qualitative interaction with $Z$
+
+- Expand design matrix $X$ to include all treatment by feature interactions $X_{ij} \times Z_i$
+- Grouped lasso: include interaction terms and force in the main effects
+
+Presence of interaction does not guarantee clinical utility
+
+
+## Overfitting problem
+
+```{r overfit, interval = .25, fig.width = 6, fig.show = "animate"}
+swanky <- function(x, butt = FALSE){
+  if(butt){
+    1 + 0 * x + .2 * cos(x/.3 + 1) + rnorm(length(x), sd = .1)
+  } else {
+    1 + 0 * x + rnorm(length(x), sd = .2)
+  }
+}
+
+
+gdat <- function(d = 1){
+  set.seed(410)
+  X <- runif(150, -2, 2)
+  Y <- swanky(X, TRUE)
+
+  X.new <- runif(150, -2, 2)
+  Y.new <- swanky(X.new, FALSE)
+
+  lfit <- loess(Y ~ X, span = -d, degree = 1, control = loess.control(surface = "direct"))
+  Y.hat <- predict(lfit)
+  Y.hat.new <- predict(lfit, newdata = data.frame(X = X.new))
+
+  in.error <- sqrt(mean((Y - Y.hat)^2))
+  out.error <- sqrt(mean((Y.new - Y.hat.new)^2))
+
+  list(data = data.frame(X, Y, d, Y.hat),
+       error = data.frame(d = d, Y = c(Y, Y.new), Y.hat = c(Y.hat, Y.hat.new),
+                          what = c(rep("in sample", 150), rep("out of sample", 150))))
+}
+
+set.seed(120)
+complex <- sort(round(c(runif(80, .1, .2), seq(.2, .6, by = .05), rbeta(10, shape1 = 2, shape2 = 5) * 6), 3))
+experi <- lapply(-complex, gdat)
+
+err <- do.call(rbind, lapply(experi, "[[", 2))
+
+test <- do.call(rbind, lapply(experi, "[[", 1))
+p3 <- ggplot(test, aes(x = X, y = Y, frame = d)) + geom_point() +
+  geom_line(aes(y = Y.hat), color = "blue", size = 2) + theme_bw() + ggtitle("Model complexity:" )
+
+dpi <- 100
+
+gg_animate(p3)
+
+```
+
+```{r overfit2, interval = .25, fig.width = 4, fig.show = "animate"}
+p4 <- ggplot(err, aes(x = Y.hat, y = Y, frame = d)) + geom_point() + theme_bw() +
+  geom_abline(slope = 1, intercept = 0) + facet_wrap(~ what, ncol = 1) + xlim(0.6, 1.4) + ylim(0.6, 1.4)
+
+gg_animate(p4, title_frame = FALSE)
+
+```
+
+### Remedies
+
+1. Split-sample
+2. Cross-validation
+3. Bootstrapping
+4. Pre-validation
+
+
+## Split sample
+
+- Partition $S$ into $S_t$ and $S_h$ with sample sizes $n_t$ and $n_h$
+- Hide $S_h$ from yourself
+- Generate an $f_t$ using $S_t$ only
+- Estimate is $E[\phi_{f_t}(S_h)]$
+- *Error for the fixed $f_t$*
+
+```{r, eval = FALSE, echo = TRUE}
+holdoutest <- function(trratio = .5, data){
+
+  npart.tr <- floor(trratio * n)
+
+  train.dex <- sample(1:n, npart.tr)
+  hold.dex <- setdiff(1:n, train.dex)
+
+  train <- data[train.dex, ]
+  hold <- data[hold.dex, ]
+
+  selecttr <- selectvars(train)
+  fit <- runclassifier(train, selecttr)
+  fitclassifier(fit, hold)
+}
+```
+
+## Cross validation
+
+- Leave out sample $i$ and estimate $f$ using $S_{-i}$
+- Get single estimate $\phi_f(s_i)$
+- Repeat a number of times
+- Average the single estimates
+- *Generalization error for the class $\mathcal{F}$*
+
+```{r, eval = FALSE, echo = TRUE}
+cross_validate <- function(K = 50, data){
+
+  over <- partition_index(data, K = K)
+
+  cvests <- sapply(over, function(index){
+
+    leaveout <- data[index, ]
+    estin <- data[setdiff(1:n, oot.dex), ]
+
+    selectin <- selectvars(estin)
+    fit <- runclassifier(estin, selectin)
+
+    fitclassifier(fit, leavout)
+
+  })
+  rowMeans(cvests, na.rm = TRUE)
+
+}
+```
+
+
+## Bootstrapping
+
+- Randomly sample $S_b$ from $S$, with replacement
+- Derive $f$ using $S_b$
+- Estimate using samples not selected $S_{-b}$
+- Repeat and average
+- *Generalization error for the class $\mathcal{F}$*
+
+```{r, eval = FALSE, echo = TRUE}
+bootstrap <- function(B = 50, data){
+
+  bootests <- replicate(B, {
+
+    boot.dex <- sample(1:n, n, replace = TRUE)
+    bin <- data[boot.dex, ]
+    notbin <- setdiff(1:n, unique(boot.dex))
+    leaveout <- data[notbin, ]
+    
+    selectin <- selectvars(bin)
+    fit <- runclassifier(bin, selectin)
+    
+    fitclassifier(fit, leaveout)
+
+  })
+
+  rowMeans(bootests)
+
+}
+```
+
+## Pre-validation
+
+- Leave out sample $i$ and estimate $f$ using $S_{-i}$: $\hat{f}_{-i}$
+- Get single fitted value $\hat{y}_i = \hat{f}_{-i}(s_i)$
+- Repeat for all $i$
+- Compare $\hat{y}_i$ with $y_i$
+- *Generalization error for the class $\mathcal{F}$*
+
+```{r, eval = FALSE, echo = TRUE}
+y.hats <- lapply(over, function(oot.dex){
+
+    leaveout <- data[oot.dex, ]
+    estin <- data[setdiff(1:n, oot.dex), ]
+
+    selectin <- selectvars(estin)
+    fit <- runclassifier(estin, selectin)
+
+    preval <- predict(fit, newdata = leaveout, type = "response")
+    preval
+
+  })
+```
+
+## Common errors
+
+1. Incomplete/partial validation
+    - Feature selection performed on full data
+    - Then only regression model validated
+2. Resubstitution
+    - Model built using training sample
+    - Performance estimated using full data
+3. Resubstitution (2)
+    - Model build using full data
+    - Performance estimated using holdout sample
+
+## Numerical experiment
+
+- Data were generated with $n$ samples, each with a binary outcome $Y$ with prevalence 0.3
+- $p$ features sampled from the standard normal distribution. 
+- This is the null case where no features are associated with $Y$. 
+
+#### Signature estimation
+
+- Each feature is regressed against $Y$ in a univariate logistic regression model. 
+- The 25 features with the smallest p-values are selected 
+- Logistic regression model defines our final signature. 
+
+## Results: $\phi = AUC$
+
+```{r cvsims}
+load("../Code/cvsim-result.RData")
+cvres <- do.call("rbind", cvsims)
+cvlong <- do.call("rbind", lapply(1:ncol(cvres), function(i){
+  
+  cl <- cvres[, i]
+  splow <- strsplit(colnames(cvres)[i], ".", fixed = TRUE)
+  nm <- paste(unlist(sapply(splow, function(s) rev(rev(s)[-1]))), collapse = ".")
+  cls <- sapply(splow, function(s) rev(s)[1])
+  data.frame(value = cvres[, i], stat = cls, scen = nm, stringsAsFactors = FALSE)
+  
+}))
+cvlong$value[cvlong$stat == "OR"] <- exp(cvlong$value[cvlong$stat == "OR"])
+
+cvlong$scen <- factor(cvlong$scen, levels = c("naive", "zhu.cv", "zhu.hold", "zhu.hold2", 
+                                              "cv.preval", "cv.10", "cv.100", "holdout.3", 
+                                              "holdout.5", "boot"), ordered = TRUE)
+
+labs <- c("Resubstitution", "Partial CV", 
+  "Partial Holdout", "Partial Resubstitution", 
+  "Pre-validation", "Leave 10 out CV", "Leave 100 out CV", 
+  "30% Holdout", "50% Holdout", "Bootstrap")
+
+names(labs) <- levels(cvlong$scen)
+
+ggplot(subset(cvlong, stat == "AUC"), aes(y = value, x = scen)) + geom_violin(fill = "grey60") + 
+  theme_bw(base_size = 13, base_family = "serif") + coord_flip() + 
+  scale_x_discrete("Estimation Approach", labels = labs) + 
+  ylab("Area Under the ROC Curve")
+```
+
+## Results: $\phi = OR$
+
+```{r cvsims2}
+ggplot(subset(cvlong, stat == "OR"), aes(y = value, x = scen)) + geom_violin(fill = "grey60") + 
+  theme_bw(base_size = 13, base_family = "serif") + coord_flip() + 
+  scale_x_discrete("Estimation Approach", labels = labs) + scale_y_log10(breaks = c(.5, 1, 2, 4)) +
+  ylab("Odds Ratio (log scale)")
+```
+
+
+## Real data example
+
+Zhu et al. (2010) _Prognostic and Predictive Gene Signature for Adjuvant Chemotherapy in Resected Non–small-Cell Lung Cancer_. 
+
+- JBR.10 trial, RCT of adjuvant vinorelbine/cisplatin (ACT) versus observation alone (OBS) in 482 participants with non small cell lung cancer (NSCLC). 
+- Of those 482 participants, 169 had frozen tissue collected, and of those samples, 133 (71 in ACT and 62 in OBS) had gene-expression profiling done using U133A oligonucleotide microarrays. 
+- Aim to develop multi-gene signature that strongly predicts prognosis, and the hypothesis was that the poor prognosis subgroup would benefit more from ACT compared to the good prognosis subgroup.
+- The signature was trained to predict disease specific survival in the OBS group. 
+- Mainly focus on the discrimination ability of their estimated signature.
+- Do not directly address calibration, that is, whether their signature accurately predicts survival times. 
+
+
+## Methods
+
+- Pre-processing to remove batch effects
+- Gene selection step with univariate Cox regression models
+- Genes with univariate p-values less than 0.005 were selected
+- Each gene was weighted by its univariate Cox regression coefficient, and the resulting weighted gene expression values summed to form risk scores. 
+- Genes were selected in a forward selection manner, starting with the most significant genes, the gene that improved the concordance between survival times and the risk score was selected. If no gene improved the concordance, the process was stopped. 
+- The final list of selected genes were all included in a multivariable Cox regression model to fit the final risk score.
+- The cutoff that yielded the smallest log-rank statistic p-value was used to dichotomize into two risk groups. 
+
+```{r, eval = FALSE, echo = TRUE}
+library(Biobase)
+library(GEOquery)
+# load series and platform data from GEO
+
+gset <- getGEO("GSE14814", GSEMatrix =TRUE)
+```
+
+
+```{r examp1}
+source("../Code/03-new-signature-zhu.R")
+```
+
+```{r exampresub, cache = TRUE}
+## substitution estimate using full dataset
+obsgrp <- subset(ldat, Post.Surgical.Treatment == "OBS")
+obsgrpw <- subset(gdat, Post.Surgical.Treatment == "OBS")
+fit.all <- fit.superpc(obsgrp, cldat)
+fitted <- predict.superpc(gdat, fit.all)
+
+evalall <- eval.predict(obsgrpw, fit.all)
+
+cldat[, "riskgrp"] <- fitted$riskgrp
+cldat$DSS <- as.numeric(cldat$DSS.status == "Dead")
+#ggplot(subset(cldat, Post.Surgical.Treatment == "OBS"), 
+#       aes(time = DSS.time, status = DSS, linetype = riskgrp)) + geom_km() + 
+#  theme_bw(base_size = 13, base_family = "serif") + 
+#  scale_linetype_discrete("Resubstitution", labels = c("Low risk", "High risk")) + 
+#  ylab("Disease Specific Survival") + xlab("Time in years since randomization")
+
+```
+
+```{r examppreval, cache = TRUE}
+set.seed(332)
+obssel <- unique(obsgrp$ID)
+# randomly reorder and select 8 groups of 6 and 2 groups of 7
+obssel <- obssel[sample(1:length(obssel), length(obssel), replace = FALSE)]
+sets <- c(rep(6, 8), 7, 7)
+scpet <- vector(mode = "list", length = 10)
+j <- 1
+for(i in 1:10){
+  scpet[[i]] <- obssel[j:(j + sets[i] - 1)]
+  j <- j + sets[i]
+}
+
+hat.f <- vector("list", 10)
+for(i in 1:10){
+  
+  obsgrpb <- subset(ldat, Post.Surgical.Treatment == "OBS" & ID %in% setdiff(obssel, scpet[[i]]))
+  obsgrpwb <- subset(gdat, Post.Surgical.Treatment == "OBS" & ID %in% scpet[[i]])
+  fit.b <- fit.superpc(obsgrpb, cldat)
+  hat.f[[i]] <- cbind(ID = scpet[[i]], as.data.frame(predict.superpc(obsgrpwb, fit.b)))
+
+}
+
+preval.dat <- merge(do.call("rbind", hat.f), cldat[, - which(colnames(cldat) %in% c("riskgrp", "lps"))], by = "ID", all.y = FALSE)
+
+# ggplot(preval.dat, 
+#        aes(time = DSS.time, status = DSS, linetype = riskgrp)) + geom_km() + 
+#   theme_bw(base_size = 13, base_family = "serif") + 
+#   scale_linetype_discrete("Prevalidated", labels = c("Low risk", "High risk")) + 
+#   ylab("Disease Specific Survival") + ylim(0, 1) + xlab("Time in years since randomization")
+```
+
+
+## Resubstitution estimates
+
+```{r examppresub, fig.height = 9}
+trtgrp <- subset(gdat, Post.Surgical.Treatment == "ACT")
+
+trt.dat <- merge(data.frame(ID = trtgrp$ID, lps = predict.superpc(trtgrp, fit.all)$lps, 
+                            riskgrp = predict.superpc(trtgrp, fit.all)$riskgrp), 
+                 cldat[, - which(colnames(cldat) %in% c("riskgrp", "lps"))], by = "ID", all.y = FALSE)
+
+preval.dat2 <- rbind(preval.dat, trt.dat)
+
+cldat.trtplot <- cldat
+cldat.trtplot$Post.Surgical.Treatment <- "Combined"
+cldat.trtplot <- rbind(cldat, cldat.trtplot)
+ggplot(cldat.trtplot, 
+       aes(time = DSS.time, status = DSS, linetype = riskgrp)) + geom_km() + geom_kmticks() + 
+  theme_bw(base_size = 13, base_family = "serif") + 
+  scale_linetype_discrete("Partial Resubstitution", labels = c("Low risk", "High risk")) + 
+  ylab("Disease Specific Survival") + ylim(0, 1) + xlab("Time in years since randomization") + 
+  facet_wrap(~ Post.Surgical.Treatment, ncol = 1)
+```
+
+```{r inter1}
+cldat.trtplot$Risk.fac <- factor(cldat.trtplot$riskgrp, levels = c(FALSE, TRUE), labels = c("Low risk", "High risk"))
+ggplot(subset(cldat.trtplot, Post.Surgical.Treatment != "Combined") , 
+       aes(time = DSS.time, status = DSS, linetype = Post.Surgical.Treatment)) + geom_km()+ geom_kmticks() + 
+  theme_bw(base_size = 13, base_family = "serif") + 
+  scale_linetype_discrete("Treatment") + 
+  ylab("Disease Specific Survival") + ylim(0, 1) + xlab("Time in years since randomization") + 
+  facet_wrap(~ Risk.fac)
+```
+
+## Pre-validated estimate
+
+```{r exampresub2, fig.height = 9}
+preval.dat2.trtplot <- preval.dat2
+preval.dat2.trtplot$Post.Surgical.Treatment <- "Combined"
+preval.dat2.trtplot <- rbind(preval.dat2, preval.dat2.trtplot)
+preval.dat2.trtplot$Risk.fac <- factor(preval.dat2.trtplot$riskgrp, levels = c(FALSE, TRUE), labels = c("Low risk", "High risk"))
+
+ggplot(preval.dat2.trtplot, 
+       aes(time = DSS.time, status = DSS, linetype = riskgrp)) + geom_km()+ geom_kmticks() + 
+  theme_bw(base_size = 13, base_family = "serif") + 
+  scale_linetype_discrete("Prevalidated", labels = c("Low risk", "High risk")) + 
+  ylab("Disease Specific Survival") + ylim(0, 1) + xlab("Time in years since randomization") + 
+  facet_wrap(~ Post.Surgical.Treatment, ncol = 1)
+```
+
+```{r inter}
+ggplot(subset(preval.dat2.trtplot, Post.Surgical.Treatment != "Combined") , 
+       aes(time = DSS.time, status = DSS, linetype = Post.Surgical.Treatment)) + geom_km()+ geom_kmticks() + 
+  theme_bw(base_size = 13, base_family = "serif") + 
+  scale_linetype_discrete("Treatment") + 
+  ylab("Disease Specific Survival") + ylim(0, 1) + xlab("Time in years since randomization") + 
+  facet_wrap(~ Risk.fac)
+```
+
+## Multivariable modeling
+
+Hazard ratios and 95% confidence intervals from separate Cox regression models that adjust for tumor histologic subtype, stages, age, and sex.
+
+
+
+```{r multivar, results = "asis"}
+cldat$Stage2 <- cldat$Stage %in% c("2A", "2B", "II")
+fit.train <- coxph(Surv(DSS.time, DSS) ~ riskgrp + Sex + Stage2 + age + Histology.type, 
+                   data = subset(cldat, Post.Surgical.Treatment == "OBS"))
+
+fit.train.inter <- coxph(Surv(DSS.time, DSS) ~ riskgrp * Post.Surgical.Treatment + Sex + Stage2 + age + Histology.type, 
+                   data = cldat)
+
+preval.dat2$Stage2 <- preval.dat2$Stage %in% c("2A", "2B", "II")
+fit.preval <- coxph(Surv(DSS.time, DSS) ~ riskgrp + Sex + Stage2 + age + Histology.type, 
+                    data = subset(preval.dat2, Post.Surgical.Treatment == "OBS"))
+
+fit.preval.inter <- coxph(Surv(DSS.time, DSS) ~ riskgrp * Post.Surgical.Treatment + Sex + Stage2 + age + Histology.type,
+                          data = preval.dat2)
+
+pCI <- function(x) {
+  sprintf("%.1f to %.1f", x[1], x[2])
+}
+
+myP <- function(x){
+  ifelse(x < .001, "< 0.001", paste(round(x, 3)))
+}
+
+HRmary <- data.frame(Comparison = "High Risk vs Low Risk", `Hazard Ratio` = round(exp(fit.train$coefficients[1]), 1), 
+           `95% CI` = pCI(exp(confint(fit.train)[1, ])), `Adjusted p` = myP(summary(fit.train)$coefficients[1, 5]), 
+           check.names = FALSE, stringsAsFactors = FALSE)
+
+HRmary <- rbind(HRmary, c("Trt/Risk interaction", round(exp(fit.train.inter$coefficients[8]), 1), 
+                          pCI(exp(confint(fit.train.inter)[8, ])), 
+                          myP(summary(fit.train.inter)$coefficients[8, 5])))
+
+
+HRmary <- rbind(HRmary, c("High Risk vs Low Risk", round(exp(fit.preval$coefficients[1]), 1), 
+                          pCI(exp(confint(fit.preval)[1, ])), 
+                          myP(summary(fit.preval)$coefficients[1, 5])),
+                c("Trt/Risk interaction", round(exp(fit.preval.inter$coefficients[8]), 1), 
+                          pCI(exp(confint(fit.preval.inter)[8, ])), 
+                          myP(summary(fit.preval.inter)$coefficients[8, 5])))
+
+rownames(HRmary) <- NULL
+
+HRmary <- cbind(Method = c("**Partial Resubstitution**", "", "**Prevalidation**", ""), HRmary)
+kable(HRmary)
+```
+
+
+## Summary
+
+- Omics-based signatures are particularly vulnerable to overfitting due to high dimensional data
+- Potential for model complexity is high
+- Select relevant features with true associations 
+- Avoid fitting to random noise in the observations
+- Use one of the many approaches to get valid performance estimates
+
+### Conclusions
+
+- Be skeptical of reports of extreme hazard ratios or perfect prediction, especially if the signature development process was complex
+- Key details often buried in methods, supplementary materials, code, etc. 
+- Rare to find study the makes data, code, methods public
+
+
+
